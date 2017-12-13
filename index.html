@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>shapeless is Dead! Long live shapeless! &mdash; Scala eXchange 2017</title>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+  <style type="text/css">
+    body {
+      font-family: 'Lato';
+    }
+    h1, h2, h3 {
+      font-weight: normal;
+    }
+    .remark-code, .remark-inline-code {
+      font-family: 'DejaVu Sans Mono';
+    }
+
+    .remark-slide-content {
+      background-repeat: no-repeat !important;
+    }
+    .typelevel {
+      background: #0E2C3C;
+      color: white;
+      font-size: 180%;
+    }
+    .typelevel a {
+      color: white;
+      text-decoration: none;
+    }
+    .red {
+      color: red;
+    }
+    .green {
+      color: green;
+    }
+    .typelevel h1 {
+      text-align: center;
+    }
+    .what-logo {
+      background-size: contain;
+      background-position: center;
+    }
+    .centered {
+      margin-top: 15%;
+    }
+    .text-centered {
+      margin-left: 22%;
+    }
+    .projects-centered {
+      margin-top: 10%;
+    }
+    .projects-centered table {
+      border-collapse: collapse;
+      width: 100%;
+    }
+    .projects-centered tr {
+    }
+    .projects-centered td {
+      text-align: center;
+      font-size: 80%;
+      padding-top: 0.5em;
+    }
+    .centeredimg {
+      margin-top: 4%;
+    }
+    .summit h1 {
+      text-shadow: rgba(255,255,255,.1) -1px -1px 1px, rgba(0,0,0,.5) 1px 1px 1px;
+    }
+    .hack-the-tower h2 {
+      margin-top: 40vh;
+    }
+    .sponsors {
+      background: white;
+    }
+    .sponsors img {
+      max-height: 7vh;
+    }
+    .cats {
+      background: white;
+    }
+    .cats img {
+      height: 60vh;
+    }
+    .title > h1 {
+      margin-top: -5%;
+      font-size: 200%;
+    }
+    .title > h2 {
+      font-size: 150%;
+    }
+    .title > h3  {
+      font-size: 100%;
+    }
+    .title img {
+      margin-bottom: -20%;
+      height: 5em;
+    }
+    .exclaim h1 {
+      font-size: 600%
+    }
+    ol {
+      margin: 0;
+      padding: 0;
+      line-height: 60px;
+      list-style-type: none;
+    }
+    ul > li {
+      margin: 3% 0 3% 0;
+      padding: 0;
+    }
+    blockquote {
+      font-size: 200%;
+    }
+    .wide {
+      margin: 0;
+      padding: 0;
+    }
+    .hero {
+      background-image: url(img/hero-left-overlay-white.svg);
+      webkit-background-size: cover;
+      -moz-background-size: cover;
+      -o-background-size: cover;
+      background-size: cover;
+    }
+  </style>
+</head>
+<body>
+  <textarea id="source">
+    name: inverse
+    layout: true
+    class: typelevel
+    ---
+    class: center, middle, hero
+
+    .title[
+      # shapeless is dead!
+      # long live shapeless!
+
+      ## Miles Sabin, [@milessabin](http://twitter.com/milessabin)
+
+      [![Typelevel logo](img/logo.svg)](http://typelevel.org)
+    ]
+
+    ---
+    class: center, middle
+
+    # shapeless is dead!?!
+
+    ---
+    # shapeless is dead ...
+
+    (Seemingly) intractable problems ...
+
+    * Compile times
+
+    * Lazy issues
+
+    * Implicit prioritization
+
+    * Non-portable macros
+    
+    ---
+    class: center
+
+    # Compile times
+
+    .centeredimg[
+      ![Compiling!](img/compiling.png)
+    ]
+    ---
+    # Compile times
+
+    ```
+    sealed trait ADT
+    case class ACtor(i: Int, s: String) extends ADT
+    case class AnotherCtor(b: Boolean) extends ADT
+    ...
+    ...
+    class UmpteenthCtor(... umpteenthField: Int, ...) extends ADT
+    ...
+    ...
+
+    implicitly[Codec[ADT]]
+    ```
+    --
+    There are ways of mitigating this, but they're laborious
+
+    ---
+    # Looping Lazy
+
+    ```
+    sealed trait List[+T]
+    case class Cons[T](hd: T, tl: List[T]) extends List[T]
+    case object Nil extends List[Nothing]
+
+    trait Show[T] {
+      def show(t: T): String
+    }
+    object Show {
+      implicit val showInt: Show[Int] = ???
+
+      implicit def showHCons[H, T](implicit sh: Show[H], st: Show[T]): Show[H :: T] = ???
+      implicit def showCCons[H, T](implicit sh: Show[H], st: Show[T]): Show[H :+: T] = ???
+
+      implicit def showGen[T, R](genT: Generic.Aux[T, R], sr: Show[R]): Show[T] = ???
+      ...
+    }
+
+    implicitly[Show[List[Int]]]
+
+    // diverging implicit expansion for type Show[List[Int]]
+    // starting with method showGen in object Show
+    ```
+    ---
+    class: center
+
+    # Looping Lazy
+
+    List[Int]
+
+    ⇓
+
+    Cons[Int] :+: Nil.type :+: CNil
+
+    ⇓
+
+    Int :: List[Int] :: HNil
+
+    ---
+    class: center
+
+    # Looping Lazy
+
+    .red[List[Int]]
+
+    ⇓
+
+    Cons[Int] :+: Nil.type :+: CNil
+
+    ⇓
+
+    Int :: .red[List[Int]] :: HNil
+    ---
+    # Looping Lazy
+
+    ```
+    sealed trait List[+T]
+    case class Cons[T](hd: T, tl: List[T]) extends List[T]
+    case object Nil extends List[Nothing]
+
+    trait Show[T] {
+      def show(t: T): String
+    }
+    object Show {
+      implicit val showInt: Show[Int] = ???
+
+      implicit def showHCons[H, T](implicit sh: Show[H], st: Show[T]): Show[H :: T] = ???
+      implicit def showCCons[H, T](implicit sh: Show[H], st: Show[T]): Show[H :+: T] = ???
+
+    * implicit def showGen[T, R](genT: Generic.Aux[T, R], sr: Lazy[Show[R]]): Show[T] = ???
+      ...
+    }
+
+    implicitly[Show[List[Int]]]
+
+    // OK!
+    ```
+    ---
+    # Looping Lazy
+
+    ```
+    trait Foo[T]
+
+    object Foo {
+      implicit def foo[T](implicit fooFoo: Lazy[Foo[Foo[T]]]): Foo[T] = ???
+    }
+
+    implicitly[Foo[Int]]
+
+
+    //
+    ```
+
+    ---
+    # Looping Lazy
+
+    ```
+    trait Foo[T]
+
+    object Foo {
+      implicit def foo[T](implicit fooFoo: Lazy[Foo[Foo[T]]]): Foo[T] = ???
+    }
+
+    implicitly[Foo[Int]]
+
+
+    // could not find implicit value for parameter e: Foo[Int] 
+
+    ```
+    --
+
+    This is hiding a `StackOverflowException` in the compiler
+
+    --
+
+    We can use `Lazy` to hang the compiler
+
+    ---
+    # Implicit prioritization ...
+
+    ```
+    trait Show[T] {
+      def show(t: T): String
+    }
+    object Show {
+      implicit val showInt: Show[Int] = ???
+      implicit def showOption[T](implicit st: Show[T]): Show[Option[T]] = ???
+    }
+
+
+
+
+    object DeriveShow {
+      implicit def showHCons[H, T](implicit sh: Show[H], st: Show[T]): Show[H :: T] = ???
+      implicit def showCCons[H, T](implicit sh: Show[H], st: Show[T]): Show[H :+: T] = ???
+      implicit def showGen[T, R](genT: Generic.Aux[T, R], sr: Lazy[Show[R]]): Show[T] = ???
+      ...
+    }
+
+    import DeriveShow._
+
+    implicit[Show[List[Int]]]  // OK: Derived
+    *implicit[Show[Option[Int]] // Compiles, but we get the derived instance
+    ```
+    ---
+    # Implicit prioritization ...
+
+    ```
+    trait Show[T] {
+      def show(t: T): String
+    }
+    object Show {
+      implicit val showInt: Show[Int] = ???
+      implicit def showOption[T](implicit st: Show[T]): Show[Option[T]] = ???
+    }
+
+
+
+
+    object DeriveShow {
+      implicit def showHCons[H, T](implicit sh: Show[H], st: Show[T]): Show[H :: T] = ???
+      implicit def showCCons[H, T](implicit sh: Show[H], st: Show[T]): Show[H :+: T] = ???
+      implicit def showGen[T, R](genT: Generic.Aux[T, R], sr: Lazy[Show[R]]): Show[T] = ???
+      ...
+    }
+
+    import DeriveShow._
+    *import Show._
+    implicit[Show[List[Int]]]  // OK: Derived
+    *implicit[Show[Option[Int]] // OK: Explicit instance
+    ```
+    ---
+    # Implicit prioritization ...
+
+    ```
+    trait Show[T] {
+      def show(t: T): String
+    }
+    *object Show extends Show0 {
+      implicit val showInt: Show[Int] = ???
+      implicit def showOption[T](implicit st: Show[T]): Show[Option[T]] = ???
+    }
+    *trait Show0 {
+    *  implicit def showFallback[T]: Show[T] = ???
+    *}
+
+    object DeriveShow {
+      implicit def showHCons[H, T](implicit sh: Show[H], st: Show[T]): Show[H :: T] = ???
+      implicit def showCCons[H, T](implicit sh: Show[H], st: Show[T]): Show[H :+: T] = ???
+      implicit def showGen[T, R](genT: Generic.Aux[T, R], sr: Lazy[Show[R]]): Show[T] = ???
+      ...
+    }
+
+    import DeriveShow._
+    import Show._
+    *implicit[Show[List[Int]]]  // Fails: showFallback and showGen ambiguous
+    implicit[Show[Option[Int]] // OK: Explicit instance
+    ```
+    ---
+    # Implicit prioritization ...
+
+    We want the derived instances to have,
+
+    + lower priority than explicit instances
+
+    + higher priority than fallback instances
+
+    --
+
+    This is impossible ...
+
+    --
+    without horrible macros &mdash; see export-hook
+
+    + more or less does the right thing
+
+    + implementation leaves a lot to be desired
+
+    + hopeful but failed experiment
+
+    ---
+    class: center
+
+    # Non-portable macros
+
+    .centeredimg[
+      ![Compiling!](img/macros.png)
+    ]
+    ---
+    # Non-portable macros
+
+    + Lazy
+
+      + Uses internals to control divergence
+    
+    + Witness
+    
+      + Uses internals to capture singleton types
+    
+    + Generic
+
+      + Uses internals to represent ADTs 
+
+    --
+
+    Even ignoring the use of internals many of these are whitebox macros
+
+    ---
+    class: center, middle
+
+    # long live shapeless!!!
+
+    ---
+    # long live shapeless ...
+
+    Language level solutions ...
+
+    * Implicit induction heurisitics
+
+    * Byname implicits
+
+    * `import implicit`, tweaked specificity and bugfixes
+
+    * Reduced macro surface area, blackbox
+    
+    ---
+    # Implicit induction heuristics
+
+    You've seen this before ...
+    
+    + `-Yinduction-heuristics`
+
+      + Reduces compile times from cubic to linear
+
+    + Hope to ship in 2.13.x (TLS will backport)
+
+    + Gets along well with ...
+
+    ---
+    # Byname implicits
+
+    ```
+    sealed trait List[+T]
+    case class Cons[T](hd: T, tl: List[T]) extends List[T]
+    case object Nil extends List[Nothing]
+
+    trait Show[T] {
+      def show(t: T): String
+    }
+    object Show {
+      implicit val showInt: Show[Int] = ???
+
+      implicit def showHCons[H, T](implicit sh: Show[H], st: Show[T]): Show[H :: T] = ???
+      implicit def showCCons[H, T](implicit sh: Show[H], st: Show[T]): Show[H :+: T] = ???
+
+      implicit def showGen[T, R](genT: Generic.Aux[T, R], sr: Lazy[Show[R]]): Show[T] = ???
+      ...
+    }
+
+    implicitly[Show[List[Int]]]
+
+    // OK!
+    ```
+
+    ---
+    # Byname implicits
+
+    ```
+    sealed trait List[+T]
+    case class Cons[T](hd: T, tl: List[T]) extends List[T]
+    case object Nil extends List[Nothing]
+
+    trait Show[T] {
+      def show(t: T): String
+    }
+    object Show {
+      implicit val showInt: Show[Int] = ???
+
+      implicit def showHCons[H, T](implicit sh: Show[H], st: Show[T]): Show[H :: T] = ???
+      implicit def showCCons[H, T](implicit sh: Show[H], st: Show[T]): Show[H :+: T] = ???
+
+    * implicit def showGen[T, R](genT: Generic.Aux[T, R], sr: => Show[R]]): Show[T] = ???
+      ...
+    }
+
+    implicitly[Show[List[Int]]]
+
+    // OK!
+    ```
+
+    ---
+    class: center
+
+    # Byname implicits
+
+    List[Int]
+
+    ⇓
+
+    Cons[Int] :+: Nil.type :+: CNil
+
+    ⇓
+
+    Int :: List[Int] :: HNil
+
+    ---
+    class: center
+
+    # Byname implicits
+
+    .green[List[Int]]
+
+    ⇓
+
+    Cons[Int] :+: Nil.type :+: CNil
+
+    ⇓
+
+    Int :: .green[List[Int]] :: HNil
+
+    ---
+    # Byname implicits
+
+    ```
+    *lazy val loop =
+      showGen(generic,         // Cons[Int] :+: Nil.type :+: CNil
+        showCCons(
+          showGen(generic,     // Int :: List[Int] :: HNil
+            showHCons(
+              showInt
+              showHCons(
+    *           loop,          // Tie the knot here
+                showHNil
+              )
+            )
+          ),
+          showCCons(
+            showGen(generic,   // HNil
+              showHNil
+            ),
+            showCNil
+          )
+        )
+      )
+    ```
+
+    ---
+    # Byname implicits
+
+    ```
+    trait Foo[T]
+
+    object Foo {
+      implicit def foo[T](implicit fooFoo: => Foo[Foo[T]]): Foo[T] = ???
+    }
+
+    implicitly[Foo[Int]]
+
+
+    // diverging implicit expansion for type shapeless.Loop.Foo[Int]
+    // starting with method foo in object Foo
+    ```
+
+    ---
+    # Byname implicits
+
+    + (Mostly) included in Dotty
+
+    + PR against scala/scala
+
+    + SIP in progress
+
+    + Hope to ship in 2.13.x (TLS will backport)
+
+    ---
+    # import implicit, tweaked specificity
+
+    ```
+    class Show[T](val i: Int)
+    object Show extends Show0 {
+      implicit val showInt: Show[Int] = new Show[Int](0)
+      implicit def showFallback[T]: Show[T] = new Show[T](1)
+    }
+
+    class Foo[T]
+    object Foo {
+      implicit def showFoo[T](implicit st: Show[T]): Show[Foo[T]] = new Show[Foo[T]](2)
+    }
+
+    object DerivedShow {
+      implicit def showGen[T](implicit genT: Generic[T]): Show[T] = new Show[T](3)
+    }
+
+    def check[T](i: Int)(implicit show: Show[T]): Unit = assert(show.i == i)
+
+
+    check[Int](0)
+    check[String](1)
+    check[Foo[Int]](2)
+    *check[Option[Int]](1)
+    ```
+
+    ---
+    # import implicit, tweaked specificity
+
+    ```
+    class Show[T](val i: Int)
+    object Show extends Show0 {
+      implicit val showInt: Show[Int] = new Show[Int](0)
+      implicit def showFallback[T]: Show[T] = new Show[T](1)
+    }
+
+    class Foo[T]
+    object Foo {
+      implicit def showFoo[T](implicit st: Show[T]): Show[Foo[T]] = new Show[Foo[T]](2)
+    }
+
+    object DerivedShow {
+      implicit def showGen[T](implicit genT: Generic[T]): Show[T] = new Show[T](3)
+    }
+
+    def check[T](i: Int)(implicit show: Show[T]): Unit = assert(show.i == i)
+
+    *import DerivedShow._
+    check[Int](0)
+    check[String](1)
+    *check[Foo[Int]](3)     // would like 2
+    *check[Option[Int]](3)  // OK
+    ```
+
+    ---
+    # import implicit, tweaked specificity
+
+    ```
+    class Show[T](val i: Int)
+    object Show extends Show0 {
+      implicit val showInt: Show[Int] = new Show[Int](0)
+      implicit def showFallback[T]: Show[T] = new Show[T](1)
+    }
+
+    class Foo[T]
+    object Foo {
+      implicit def showFoo[T](implicit st: Show[T]): Show[Foo[T]] = new Show[Foo[T]](2)
+    }
+
+    object DerivedShow {
+      implicit def showGen[T](implicit genT: Generic[T]): Show[T] = new Show[T](3)
+    }
+
+    def check[T](i: Int)(implicit show: Show[T]): Unit = assert(show.i == i)
+
+    *import implicit DerivedShow._
+    check[Int](0)
+    check[String](1)
+    *check[Foo[Int]](2)     // OK
+    check[Option[Int]](3)  // OK
+    ```
+
+    ---
+    # import implicit, tweaked specificity
+
+    ```
+    class Show[T](val i: Int)
+    object Show extends Show0 {
+      implicit val showInt: Show[Int] = new Show[Int](0)
+    * implicit def showFallback[T]: Show[T] = new Show[T](1)
+    }
+
+    class Foo[T]
+    object Foo {
+      implicit def showFoo[T](implicit st: Show[T]): Show[Foo[T]] = new Show[Foo[T]](2)
+    }
+
+    object DerivedShow {
+    * implicit def showGen[T](implicit genT: Generic[T]): Show[T] = new Show[T](3)
+    }
+
+    def check[T](i: Int)(implicit show: Show[T]): Unit = assert(show.i == i)
+
+    import implicit DerivedShow._
+    check[Int](0)
+    check[String](1)
+    check[Foo[Int]](2)     // OK
+    check[Option[Int]](3)  // OK
+    ```
+
+    ---
+    # import implicit, tweaked specificity
+
+    ```
+    class Low
+    class Medium extends Low
+    class High extends Medium
+
+    class Foo[T](val i: Int)
+    object Foo {
+      implicit def foo[T](implicit priority: Low): Foo[T] = new Foo[T](0)
+      implicit def foobar[T](implicit priority: Low): Foo[Bar[T]] = new Foo[Bar[T]](1)
+      implicit def foobarbaz(implicit priority: Low): Foo[Bar[Baz]] = new Foo[Bar[Baz]](2)
+    }
+    class Bar[T]
+    object Bar {
+      implicit def foobar[T](implicit priority: Medium): Foo[Bar[T]] = new Foo[Bar[T]](3)
+      implicit def foobarbaz(implicit priority: Medium): Foo[Bar[Baz]] = new Foo[Bar[Baz]](4)
+    }
+    class Baz
+    object Baz {
+      implicit def baz(implicit priority: High): Foo[Bar[Baz]] = new Foo[Bar[Baz]](5)
+    }
+
+    assert(implicitly[Foo[Int]].i == 0)
+    assert(implicitly[Foo[Bar[Int]]].i == 3) // ambiguious with current rules
+    assert(implicitly[Foo[Bar[Baz]]].i == 5) // ambiguious with current rules
+    ```
+
+    ---
+    # import implicit, tweaked specificity
+    
+    + `import implicit` is in milessabin/scala
+    
+      + Will need a SIP
+
+    + Tweaked specificity is a PR against scala/scala
+
+      + Arguably this matches reality to the current spec
+
+    + Both will be included in the next TLS release
+
+    ---
+    # Non-portable macros
+
+    + Lazy ⇒ byname implicits
+
+    + Cached ⇒ general instance caching mechanism (WIP)
+
+    + Witness ⇒ literal types, `ValueOf`
+
+    + export-hook ⇒ import implicit and tweaked specificity
+
+    + Whitebox macros ⇒ continuation passing style
+
+    ---
+    # Non-portable macros
+
+    Generic is still work in progress ...
+
+    + What representation type (or none?)
+
+    + Kind polymorphism
+
+    + `Representable` in Dotty
+
+    ---
+    class: center, middle
+
+    # Questions?
+
+    ---
+    class: center, middle, hero
+
+    .title[
+      # Thank You
+      ## Miles Sabin, [@milessabin](http://twitter.com/milessabin)
+      ### http://typelevel.org/
+
+      [![Typelevel logo](img/logo.svg)](http://typelevel.org)
+    ]
+
+  </textarea>
+  <!--
+    There's a copy of this JS included in the cached folder,
+    to give yourself a chance if you have no internets /o\
+  -->
+  <script src="cache/remark-latest.min.js">
+  </script>
+  <script>
+    var slideshow = remark.create({
+      //ratio: '4:3',
+      ratio: '16:9',
+
+
+      slideNumberFormat: '',
+      // Or you might like the page number bottom right:
+      // slideNumberFormat: '%current%',
+
+      // Default: use ```sql ..``` etc to override
+      highlightLanguage: 'scala',
+
+      // Plausible style for blue background:
+      highlightStyle: 'github',
+
+      // These also look reasonable:
+      //highlightStyle: 'default',
+      //highlightStyle: 'ascetic',
+      //highlightStyle: 'vs',
+
+      //Good styles, but don't really work with a blue background:
+      //highlightStyle: 'ir_black',
+      //highlightStyle: 'dark',
+
+      highlightLines: true,
+      });
+  </script>
+</body>
+</html>
