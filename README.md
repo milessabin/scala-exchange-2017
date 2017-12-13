@@ -1,12 +1,12 @@
-# Typelevel in 2016 - Scala By The Bay 2016
+# shapeless is dead! long live shapeless!
 
-Slides from my Typelevel status update at Scala By The Bay 2016 in San Francisco
+Slides from my talk at Scala eXchange London, 2017
 
-The slides are online [here](http://milessabin.com/talks/2016/11/11/sbtb-typelevel-2016). Video should be
+The slides are online [here](http://milessabin.com/talks/2017/12/14/scala-exchange-2017). Video should be
 available later.
 
 ### Resources
 
 * Typelevel [project site](http://typelevel.org).
-* Typelevel [on github](http://github.com/typelevel/general).
-* Gitter discussion on [typelevel/general](http://gitter.im/typelevel/general).
+* Typelevel Scala [on github](http://github.com/typelevel/scala).
+* Gitter discussion on [typelevel/general](http://gitter.im/typelevel/scala).
